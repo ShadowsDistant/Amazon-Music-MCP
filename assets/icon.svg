@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1A6FB7"/>
+      <stop offset="1" stop-color="#3EB3E5"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#ffffff"/>
+  <text x="512" y="500" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="600" font-size="300" letter-spacing="-6" fill="url(#g)">music</text>
+  <circle cx="762" cy="258" r="22" fill="url(#g)"/>
+  <path d="M46 600 C 240 760, 620 800, 890 655" fill="none" stroke="url(#g)" stroke-width="44" stroke-linecap="round"/>
+  <path d="M808 604 C 860 585, 930 578, 972 590 C 985 660, 960 720, 910 745 C 935 700, 940 660, 930 630 C 900 626, 860 632, 812 640 Z" fill="url(#g)"/>
+</svg>
