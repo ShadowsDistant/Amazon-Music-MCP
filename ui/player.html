@@ -62,11 +62,14 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: transparent; color: var(--fg); font: 12.5px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
-  body { overflow: hidden; }
+  /* Never hard-clip: if the host ever sizes the frame smaller than the card, the content
+     has to stay reachable rather than silently vanish. The bottom padding is room for the
+     card’s drop shadow, which is painted outside its border box and was being cut off. */
+  body { overflow-x: hidden; padding-bottom: 10px; }
 
   .card { position: relative; overflow: hidden; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
           padding: 10px 12px 9px; box-shadow: var(--shadow); max-width: 100%;
-          animation: cardIn .3s cubic-bezier(.2,.7,.3,1) both; }
+          animation: cardIn .3s cubic-bezier(.2,.7,.3,1); }
   @keyframes cardIn { from { opacity: 0; transform: translateY(6px) scale(.995); } to { opacity: 1; transform: none; } }
   .card.busy .controls button, .card.busy .like { opacity: .55; pointer-events: none; }
   /* The player moved on to another track; this card stays on its own song. */
@@ -79,7 +82,7 @@
         transform: scale(1.04); }
   .veil { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease; pointer-events: none;
           background: linear-gradient(100deg, var(--veil) 0%, var(--veil) 62%, var(--veil2) 100%); }
-  .card.has-bg .bg { opacity: .5; animation: bgIn 1.1s ease both; }
+  .card.has-bg .bg { opacity: .5; animation: bgIn 1.1s ease; }
   .card.has-bg .veil { opacity: 1; }
   @keyframes bgIn { from { transform: scale(1.12); opacity: 0; } to { transform: scale(1.04); opacity: .5; } }
   .inner { position: relative; }
@@ -96,7 +99,7 @@
   .card.playing .artwrap::after { opacity: 1; }
   .eq { position: absolute; right: -4px; bottom: -4px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
         display: none; align-items: flex-end; justify-content: center; gap: 1.5px; padding: 4px;
-        box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: background .5s ease; animation: pop .3s cubic-bezier(.2,.7,.3,1) both; }
+        box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: background .5s ease; animation: pop .3s cubic-bezier(.2,.7,.3,1); }
   @keyframes pop { from { transform: scale(0); } to { transform: none; } }
   .eq i { display: block; width: 2.5px; background: var(--accent-fg); border-radius: 1px; height: 40%; animation: eq 1s ease-in-out infinite; }
   .eq i:nth-child(2) { height: 90%; animation-delay: -.35s; } .eq i:nth-child(3) { height: 60%; animation-delay: -.7s; }
@@ -116,7 +119,7 @@
   .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
   .tag { font-size: 9px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
          border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; line-height: 1.5; white-space: nowrap;
-         animation: tagIn .28s cubic-bezier(.2,.7,.3,1) both; }
+         animation: tagIn .28s cubic-bezier(.2,.7,.3,1) backwards; }
   @keyframes tagIn { from { opacity: 0; transform: translateY(2px) scale(.94); } to { opacity: 1; transform: none; } }
   .tag.explicit { background: var(--bg3); border-color: transparent; }
   .tag.quality { color: var(--accent-text); border-color: var(--accent-soft); background: var(--accent-soft); transition: color .5s, background .5s, border-color .5s; }
@@ -174,7 +177,7 @@
   .right button { width: 26px; height: 26px; }
   .right button svg { width: 14px; height: 14px; }
 
-  .panel { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; animation: panelIn .24s cubic-bezier(.2,.7,.3,1) both; }
+  .panel { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; animation: panelIn .24s cubic-bezier(.2,.7,.3,1); }
   @keyframes panelIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
   .phead { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--faint);
            font-size: 10px; text-transform: uppercase; letter-spacing: .07em; padding: 0 4px 4px; }
@@ -184,7 +187,7 @@
   .rows .none { color: var(--faint); font-style: italic; padding: 4px 6px; }
   .row { display: flex; gap: 9px; align-items: center; padding: 4px 6px 4px 4px; border-radius: var(--radius-sm);
          border: 1px solid transparent; transition: background .14s, border-color .14s, transform .14s;
-         animation: rowIn .26s cubic-bezier(.2,.7,.3,1) both; }
+         animation: rowIn .26s cubic-bezier(.2,.7,.3,1) backwards; }
   @keyframes rowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   .row.click { cursor: pointer; }
   .row.click:hover { background: var(--bg2); transform: translateX(2px); }
@@ -207,14 +210,14 @@
 
   .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px;
           padding-top: 6px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px;
-          animation: panelIn .24s cubic-bezier(.2,.7,.3,1) both; }
+          animation: panelIn .24s cubic-bezier(.2,.7,.3,1); }
   .foot .ft { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .foot button { width: auto; height: 22px; padding: 0 9px; font: inherit; font-size: 10px; text-transform: uppercase;
                  letter-spacing: .06em; color: var(--accent-text); border: 1px solid var(--accent-soft); background: var(--accent-soft); }
 
   /* Card skeleton: shown until the first state arrives, and while switching tracks, so the
      card never flashes "Nothing is playing" or an empty frame. */
-  .skel { animation: panelIn .2s ease both; }
+  .skel { animation: panelIn .2s ease; }
   .skel-top { display: flex; gap: 11px; align-items: center; }
   .skel-meta { flex: 1; min-width: 0; }
   .sk { background: linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 50%, var(--bg2) 75%); background-size: 220% 100%;

@@ -87,7 +87,7 @@ const el = {
   status: $('status'),
 };
 
-const app = new App({ name: 'amazon-music-player', version: '1.0.0' });
+const app = new App({ name: 'amazon-music-player', version: '1.0.1' });
 let current: NowPlaying | null = null;
 /**
  * The track this card is about. Once set it does not change on its own: a card in the
@@ -110,6 +110,14 @@ let autoplayKnown = false;
 let toolPending = false;
 /** Bumped on every invocation, so an in-flight poll started under the old one is discarded. */
 let toolGen = 0;
+/**
+ * The host has told us something about this card — an invocation starting, or its result.
+ * Until it does, or until the grace period runs out, the card must not go asking the player
+ * what is on: the answer would be the song from before this call, and a card that flashes
+ * the previous track before correcting itself is the whole complaint.
+ */
+let toolSeen = false;
+const TOOL_GRACE_MS = 450;
 
 const keyOf = (np: NowPlaying | null | undefined): string | null => (np?.title ? `${np.title}|${np.artist ?? ''}` : null);
 
@@ -288,14 +296,35 @@ function setCardLoading(on: boolean): void {
   notifySize();
 }
 
-/** Size messages are cheap but not free; one per frame is plenty. */
+/**
+ * Room for the card's drop shadow, which is painted outside its border box. Without it the
+ * host sizes the frame to the border box exactly and the shadow is cut off at the edge.
+ * Matches the `padding-bottom` on body.
+ */
+const SHADOW_SLACK = 10;
+
+/**
+ * The card's own layout height. `documentElement.scrollHeight` was wrong in two ways: it
+ * returns max(content, viewport), so once the host had grown the frame the card could never
+ * ask for less and a closed panel left a hole under it; and being a scroll extent it grows
+ * with the entry animation's transform, so the first measurement was taken mid-slide.
+ * `offsetHeight` is layout only — no transform, no viewport floor.
+ */
+function measure(): number {
+  return el.card.offsetHeight + SHADOW_SLACK;
+}
+
 let sizeQueued = false;
+let sentHeight = -1;
 function notifySize(): void {
   if (sizeQueued) return;
   sizeQueued = true;
   setTimeout(() => {
     sizeQueued = false;
-    app.sendSizeChanged({ height: document.documentElement.scrollHeight }).catch(() => {});
+    const height = measure();
+    if (height === sentHeight) return;
+    sentHeight = height;
+    app.sendSizeChanged({ height }).catch(() => {});
   }, 60);
 }
 
@@ -935,6 +964,7 @@ el.vol.onchange = () => {
 // nothing else until it lands.
 app.ontoolinput = () => {
   pinnedKey = null;
+  toolSeen = true;
   toolPending = true;
   toolGen++;
   setCardLoading(true);
@@ -943,6 +973,7 @@ app.ontoolinput = () => {
 app.ontoolresult = (params) => {
   const data = parse(params as never);
   const np = npFrom(data);
+  toolSeen = true;
   toolPending = false;
   if (typeof data.autoplay === 'boolean') {
     autoplayOn = data.autoplay;
@@ -955,8 +986,12 @@ app.ontoolresult = (params) => {
   if (np) {
     pinnedKey = keyOf(np);
     render({ browser: 'running', loggedIn: true, now_playing: np }, true);
-  } else {
+  } else if (data.error || data.browser || data.loggedIn === false) {
     render(data);
+  } else {
+    // A result with no track in it (a tool that doesn't report one). Ask, rather than
+    // declaring nothing is playing.
+    void refresh(true);
   }
 };
 // A cancelled invocation is never going to report back; fall through to the live state
@@ -1056,7 +1091,14 @@ const DEMO_LYRICS = [
     // so it was the slowest thing the card did.
     setInterval(() => void refresh(), POLL_MS);
     document.addEventListener('visibilitychange', () => void refresh());
-    await refresh();
+    // The card was measured while the frame may still have been settling; re-check once the
+    // fonts and artwork have landed.
+    new ResizeObserver(() => notifySize()).observe(el.card);
+    // Wait for the host to say what this card is about before falling back to "whatever is
+    // playing". A card created by a play call gets its answer from the call itself; only a
+    // standalone one has to ask, and it keeps the loading state until then either way.
+    await new Promise((r) => setTimeout(r, TOOL_GRACE_MS));
+    if (!toolSeen) await refresh(true);
   } catch (e) {
     showEmpty(`Could not connect to host: ${e instanceof Error ? e.message : String(e)}`);
   }
