@@ -991,11 +991,14 @@ const DEMO_LYRICS = [
   if (location.search.includes('skeleton')) return; // the card starts in its loading state
   if (location.search.includes('demo')) {
     // Layout preview without an MCP host: node scripts/serve-ui.mjs → http://localhost:8765/?demo
+    // scripts/shots.mjs injects the *real* player state here, so the README screenshots are
+    // of a genuine track rather than a mock-up.
+    const shot = (window as unknown as { __amzShot?: NowPlaying; __amzShotQueue?: QueueItem[] }).__amzShot;
     autoplayKnown = true;
     render({
       browser: 'running',
       loggedIn: true,
-      now_playing: {
+      now_playing: shot ?? {
         title: 'One More Time',
         artist: 'Daft Punk',
         album: 'Discovery',
@@ -1024,14 +1027,15 @@ const DEMO_LYRICS = [
       renderLyrics(current!);
     }
     if (location.search.includes('queue')) {
+      const rows = (window as unknown as { __amzShotQueue?: QueueItem[] }).__amzShotQueue ?? [
+        { title: 'Digital Love', artist: 'Daft Punk', album: 'Discovery', href: '/a?trackAsin=3', artwork: null, tags: ['ultra_hd' as Tag] },
+        { title: 'Harder, Better, Faster, Stronger', artist: 'Daft Punk', album: 'Discovery', href: '/a?trackAsin=4', artwork: null, tags: ['hd' as Tag] },
+        { title: 'Around the World', artist: 'Daft Punk', album: 'Homework', href: '/a?trackAsin=5', artwork: null, tags: [] },
+      ];
       el.queuePanel.hidden = false;
       el.queueBtn.classList.add('on');
-      el.queueHead.textContent = 'Up next · 3 queued';
-      el.queueList.replaceChildren(
-        queueRow({ title: 'Digital Love', artist: 'Daft Punk', album: 'Discovery', href: '/a?trackAsin=3', artwork: null, tags: ['ultra_hd'] }, 1),
-        queueRow({ title: 'Harder, Better, Faster, Stronger', artist: 'Daft Punk', album: 'Discovery', href: '/a?trackAsin=4', artwork: null, tags: ['hd'] }, 2),
-        queueRow({ title: 'Around the World', artist: 'Daft Punk', album: 'Homework', href: '/a?trackAsin=5', artwork: null, tags: [] }, 3),
-      );
+      el.queueHead.textContent = `Up next · ${rows.length} queued`;
+      el.queueList.replaceChildren(...rows.map((r, i) => queueRow(r, i + 1)));
     }
     if (location.search.includes('stale')) {
       el.card.classList.add('stale');

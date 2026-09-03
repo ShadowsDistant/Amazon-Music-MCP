@@ -8,6 +8,36 @@ page you would.
 > your own signed-in browser profile, for your own account. The server never sees your
 > credentials — `login` shows you the Edge window and you sign in yourself.
 
+## The player widget
+
+Claude renders this card in the conversation whenever you play something. Every screenshot
+below is the real widget showing a real track — `scripts/shots.mjs` renders it with the
+live player state.
+
+![The player card, dark theme](assets/screenshots/player-dark.png)
+
+It takes its accent from the album cover, and the artist backdrop behind it is Amazon's own
+— not the cover art. The same card in light theme, with the colour re-derived so anything
+you have to *read* still clears 4.5:1 against the background:
+
+![The player card, light theme](assets/screenshots/player-light.png)
+
+The quality badge carries the numbers Amazon reports behind it, so "ULTRA HD · 24-bit /
+48 kHz" is what is actually coming out of the browser, not what the track could offer.
+
+**Synced lyrics**, which follow the song and scroll-lock the moment you touch them:
+
+![The lyrics panel](assets/screenshots/player-lyrics.png)
+
+**Up next**, straight from Amazon's play queue — click any row to jump to it:
+
+![The up-next panel](assets/screenshots/player-queue.png)
+
+While a call is still running the card shows its loading state rather than the previous
+song:
+
+![The loading card](assets/screenshots/player-loading.png)
+
 - Real Edge (not a bundled Chromium) because Amazon Music streams with Widevine DRM.
 - Headed window kept **off-screen** (never minimized: the player stops rendering when the
   tab is hidden) and **hidden from the taskbar** (tool-window style). Audio plays normally.
@@ -184,6 +214,10 @@ panels. Every tool logs its duration to stderr; `play_by_query` also logs a per-
 breakdown (`search`, `pick`, `click`, `playing`), and `waitForTrack` / `single-track`
 lines say what the player actually did. When playback misbehaves, read those first.
 
+The README screenshots come from `node scripts/shots.mjs [outDir]`, which reads the live
+player state over stdio, waits for the backdrop and quality numbers to warm, and renders
+the widget in a throwaway headless Edge. Play something first.
+
 ## Limitations
 
 - **Search rows carry only `explicit`.** Amazon's search payload has no quality badges —
@@ -243,6 +277,7 @@ scripts/setup.ps1   build into %USERPROFILE%\.amazon-music-mcp (outside OneDrive
 scripts/install.mjs merge/remove the Claude Desktop config entry
 scripts/autostart.mjs  create/remove the Startup-folder shortcut + hidden launcher
 scripts/taskbar.ps1 hide/restore the Edge window's taskbar button (Win32 via PowerShell)
+scripts/shots.mjs   render the README screenshots from the live player state
 scripts/smoke.mjs, call.mjs, serve-ui.mjs   test utilities
 ```
 

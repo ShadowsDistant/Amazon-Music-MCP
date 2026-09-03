@@ -315,21 +315,36 @@ export function noteInteraction(): void {
   lastInteraction = Date.now();
 }
 
-const harvesting = new Set<string>();
+/**
+ * There is one Now Playing View and several background jobs that want it — the backdrop and
+ * lyric harvest, and the quality-numbers read. Run them one at a time: when they overlap,
+ * one closes the view the other is reading from and both come back empty, which is how a
+ * track ended up with a backdrop but no quality numbers (or the other way round).
+ */
+let npvChain: Promise<unknown> = Promise.resolve();
+export function npvExclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const next = npvChain.then(fn, fn);
+  npvChain = next.catch(() => undefined);
+  return next;
+}
+
+let harvesting = false;
 
 async function harvestNpv(p: Page, np: NowPlaying): Promise<void> {
-  const key = trackKey(np);
-  if (harvesting.size > 0 || Date.now() - lastInteraction < 2000) return;
-  harvesting.add(key);
+  if (harvesting || Date.now() - lastInteraction < 2000) return;
+  harvesting = true;
+  void np;
   try {
-    if (await ensureNpv(p, true)) {
-      mergeNpvCache(toNowPlaying(await readTransport(p)));
-      await ensureNpv(p, false);
-    }
+    await npvExclusive(async () => {
+      if (await ensureNpv(p, true)) {
+        mergeNpvCache(toNowPlaying(await readTransport(p)));
+        await ensureNpv(p, false);
+      }
+    });
   } catch (e) {
     log.warn('background Now Playing View harvest failed', e);
   } finally {
-    harvesting.delete(key);
+    harvesting = false;
   }
 }
 

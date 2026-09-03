@@ -22,7 +22,7 @@ import {
 import { CONFIG } from './config.js';
 import { addToPlaylist, myPlaylists, playPlaylist } from './library.js';
 import { log } from './log.js';
-import { autoplay, ensureNpv, knownAutoplay, like, nowPlaying, nowPlayingLive, nowPlayingSynced, queue, setPlayback, setRepeat, setShuffle, setVolume, skip, waitForTrack } from './player.js';
+import { autoplay, ensureNpv, knownAutoplay, like, nowPlaying, nowPlayingLive, nowPlayingSynced, npvExclusive, queue, setPlayback, setRepeat, setShuffle, setVolume, skip, waitForTrack } from './player.js';
 import { audioQuality, peekQuality } from './quality.js';
 import { stopWatch, watchSingleTrack, type PlayIntent } from './singleTrack.js';
 import { parseItems, playByQuery, playHref, queueAdd, search, settle } from './search.js';
@@ -141,7 +141,8 @@ async function qualityFor(p: Page, np: { title: string | null; artist: string | 
   if (!qualityWarmed.has(key)) {
     qualityWarmed.add(key);
     if (qualityWarmed.size > 40) qualityWarmed.delete(qualityWarmed.values().next().value as string);
-    void audioQuality(p, key, ensureNpv).catch(() => {});
+    // Serialised with the backdrop/lyrics harvest: both open the same Now Playing View.
+    void npvExclusive(() => audioQuality(p, key, ensureNpv)).catch(() => {});
   }
   return undefined;
 }
