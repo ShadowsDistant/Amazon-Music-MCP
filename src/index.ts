@@ -11,6 +11,15 @@ import { registerTools } from './tools.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+/** One version, from package.json, so the server and the extension manifest can't drift. */
+function version(): string {
+  try {
+    return (JSON.parse(fs.readFileSync(path.join(here, '..', 'package.json'), 'utf8')) as { version?: string }).version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
 /**
  * Icons as data URIs, smallest first, in several sizes: a client that wants a 48px icon
  * should not have to pick a 512px one (or skip the set entirely). PNG before SVG because
@@ -53,7 +62,7 @@ const server = new McpServer(
   {
     name: 'amazon-music',
     title: 'Amazon Music',
-    version: '0.3.0',
+    version: version(),
     description: 'Control Amazon Music through a background Edge tab',
     websiteUrl: 'https://music.amazon.com/',
     icons: loadIcons(),
