@@ -22,7 +22,7 @@ import {
 import { CONFIG } from './config.js';
 import { addToPlaylist, myPlaylists, playPlaylist } from './library.js';
 import { log } from './log.js';
-import { autoplay, ensureNpv, knownAutoplay, like, nowPlaying, nowPlayingLive, nowPlayingSynced, npvExclusive, queue, setPlayback, setRepeat, setShuffle, setVolume, skip, waitForTrack } from './player.js';
+import { autoplay, ensureNpv, knownAutoplay, knownVolume, like, nowPlaying, nowPlayingLive, nowPlayingSynced, npvExclusive, queue, readVolume, setPlayback, setRepeat, setShuffle, setVolume, skip, waitForTrack } from './player.js';
 import { audioQuality, peekQuality } from './quality.js';
 import { stopWatch, watchSingleTrack, type PlayIntent } from './singleTrack.js';
 import { parseItems, playByQuery, playHref, queueAdd, search, settle } from './search.js';
@@ -106,8 +106,21 @@ async function uiState(): Promise<Record<string, unknown>> {
   const p = await ensurePage();
   const loggedIn = await isLoggedIn(p);
   const np = loggedIn === true ? await nowPlayingLive(p) : null;
-  if (loggedIn === true) warmAutoplay();
+  if (loggedIn === true) {
+    warmAutoplay();
+    if (np?.title) warmVolume(p);
+  }
   return { browser: 'running', loggedIn, autoplay: knownAutoplay(), now_playing: np ? { ...np, quality: await qualityFor(p, np) } : null };
+}
+
+/** Same idea as the Autoplay warm: one click, once, then served from cache. */
+let volumeWarm: Promise<unknown> | null = null;
+function warmVolume(p: Page): void {
+  if (volumeWarm || knownVolume() !== null) return;
+  volumeWarm = npvExclusive(() => readVolume(p)).catch((e) => {
+    volumeWarm = null;
+    log.warn('could not read the volume', e);
+  });
 }
 
 /**

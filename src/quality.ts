@@ -1,5 +1,4 @@
 import type { Page } from 'playwright-core';
-import { CONFIG } from './config.js';
 import { sleep } from './browser.js';
 import { log } from './log.js';
 import { SEL } from './selectors.js';
@@ -85,5 +84,3 @@ export async function audioQuality(p: Page, trackKey: string, ensureNpv: (p: Pag
     if (!wasOpen) await ensureNpv(p, false).catch(() => {});
   }
 }
-
-void CONFIG;

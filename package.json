@@ -1,6 +1,6 @@
 {
   "name": "amazon-music-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "MCP server that controls Amazon Music's web player through a background Microsoft Edge tab (no Amazon API).",

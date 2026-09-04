@@ -330,10 +330,9 @@ export function npvExclusive<T>(fn: () => Promise<T>): Promise<T> {
 
 let harvesting = false;
 
-async function harvestNpv(p: Page, np: NowPlaying): Promise<void> {
+async function harvestNpv(p: Page): Promise<void> {
   if (harvesting || Date.now() - lastInteraction < 2000) return;
   harvesting = true;
-  void np;
   try {
     await npvExclusive(async () => {
       if (await ensureNpv(p, true)) {
@@ -357,7 +356,7 @@ async function harvestNpv(p: Page, np: NowPlaying): Promise<void> {
 export async function nowPlayingLive(p: Page): Promise<NowPlaying> {
   const t = await readTransport(p);
   const np = mergeNpvCache(toNowPlaying(t));
-  if (t?.hasBar && !t.npvOpen && np.title && !npvCached(np)) void harvestNpv(p, np);
+  if (t?.hasBar && !t.npvOpen && np.title && !npvCached(np)) void harvestNpv(p);
   return withAccent(p, np);
 }
 
@@ -491,6 +490,37 @@ export async function skip(p: Page, dir: 'next' | 'previous'): Promise<NowPlayin
   if (!btn) throw new Error(`No "${dir}" control found. Is something playing?`);
   await btn.click(CLICK);
   return waitForTrack(p, before, 4000);
+}
+
+/** Last known volume, 0-100. See readVolume: it is not on the page unless asked for. */
+export const knownVolume = (): number | null => lastVolume;
+
+/**
+ * Amazon keeps the volume out of the DOM until you open the volume popover, and the page's
+ * one media element is a decoy whose `.volume` never moves. So the only honest reading costs
+ * a click. Do it once in the background and remember it, rather than reporting a number
+ * nobody set: the widget was showing a full slider next to a quarter-volume player.
+ */
+export async function readVolume(p: Page): Promise<number | null> {
+  const btn = await transportButton(p, SEL.transport.volume);
+  if (!btn) return null;
+  const range = p.locator(SEL.transport.volumeRange);
+  const wasOpen = (await range.count()) > 0;
+  if (!wasOpen) {
+    await btn.click({ timeout: 3000, force: true, noWaitAfter: true });
+    await range.first().waitFor({ state: 'attached', timeout: 2500 }).catch(() => {});
+  }
+  const v = await range
+    .first()
+    .evaluate((el) => {
+      const input = el as HTMLInputElement;
+      const max = Number(input.max || 1);
+      return max > 0 ? Math.round((Number(input.value) / max) * 100) : null;
+    })
+    .catch(() => null);
+  if (!wasOpen) await btn.click({ timeout: 2000, noWaitAfter: true }).catch(() => {});
+  if (typeof v === 'number') lastVolume = v;
+  return v;
 }
 
 export async function setVolume(p: Page, level: number): Promise<NowPlaying> {

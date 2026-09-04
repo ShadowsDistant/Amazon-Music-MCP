@@ -87,7 +87,7 @@ const el = {
   status: $('status'),
 };
 
-const app = new App({ name: 'amazon-music-player', version: '1.0.1' });
+const app = new App({ name: 'amazon-music-player', version: '1.0.2' });
 let current: NowPlaying | null = null;
 /**
  * The track this card is about. Once set it does not change on its own: a card in the
@@ -121,10 +121,26 @@ const TOOL_GRACE_MS = 450;
 
 const keyOf = (np: NowPlaying | null | undefined): string | null => (np?.title ? `${np.title}|${np.artist ?? ''}` : null);
 
-/** `hidden` is a property on HTMLElement only; SVG icons need the attribute. */
+/**
+ * The card re-renders on every poll, so a write that changes nothing should touch nothing.
+ * `hidden` is a property on HTMLElement only; SVG icons need the attribute.
+ */
 function show(node: Element, visible: boolean): void {
+  if (visible === !node.hasAttribute('hidden')) return;
   if (visible) node.removeAttribute('hidden');
   else node.setAttribute('hidden', '');
+}
+
+function setText(node: HTMLElement, text: string): void {
+  if (node.textContent !== text) node.textContent = text;
+}
+
+function setTitle(node: HTMLElement, text: string): void {
+  if (node.title !== text) node.title = text;
+}
+
+function setHidden(node: HTMLElement, hidden: boolean): void {
+  if (node.hidden !== hidden) node.hidden = hidden;
 }
 
 function fmt(s: number | undefined): string {
@@ -216,7 +232,13 @@ function readableText(h: number, s: number, l: number, bg: Rgb): string {
   return `rgb(${best[0]} ${best[1]} ${best[2]})`;
 }
 
-function applyAccent(accent: Rgb | null | undefined, mono = false): void {
+/** Recomputing the palette costs a forced style recalc, so only do it when it would change. */
+let accentKey = '';
+
+function applyAccent(accent: Rgb | null | undefined, mono = false, force = false): void {
+  const key = `${accent?.join(',') ?? ''}|${mono}|${document.documentElement.dataset.theme ?? ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`;
+  if (!force && key === accentKey) return;
+  accentKey = key;
   const root = document.documentElement;
   if (!accent) {
     for (const p of ['--accent', '--accent-text', '--accent-soft', '--accent-fg']) root.style.removeProperty(p);
@@ -360,7 +382,17 @@ function tagChip(t: Tag, quality?: Quality | null, withNumbers = false): HTMLSpa
   return s;
 }
 
+/**
+ * Rebuilding the chips replays their entry animation, so doing it on every three-second
+ * poll made the badges pulse. Only rebuild when the badges would actually differ.
+ */
+let tagsKey = '';
+
 function renderTags(np: NowPlaying): void {
+  const q = np.quality;
+  const key = `${(np.tags ?? []).join(',')}|${q?.output ?? ''}|${q?.track ?? ''}|${q?.device ?? ''}|${q?.description ?? ''}`;
+  if (key === tagsKey) return;
+  tagsKey = key;
   el.tags.replaceChildren();
   // The numbers belong on one badge only — the best format present — not repeated on each.
   const primary = (['ultra_hd', 'dolby_atmos', 'hd', 'spatial'] as Tag[]).find((t) => np.tags?.includes(t)) ?? null;
@@ -683,7 +715,7 @@ function render(state: UiState, fromTool = false): void {
     return;
   }
   el.card.classList.remove('stale');
-  el.foot.hidden = true;
+  setHidden(el.foot, true);
 
   const np = incoming;
   const prev = current;
@@ -696,9 +728,9 @@ function render(state: UiState, fromTool = false): void {
 
   const trackChanged = !prev || keyOf(prev) !== incomingKey;
   const wasHidden = el.main.hidden;
-  el.skeleton.hidden = true;
-  el.empty.hidden = true;
-  el.main.hidden = false;
+  setHidden(el.skeleton, true);
+  setHidden(el.empty, true);
+  setHidden(el.main, false);
 
   // Only crossfade between two real tracks; the first paint must be immediate.
   if (trackChanged && !wasHidden && prev?.title) {
@@ -718,24 +750,24 @@ function render(state: UiState, fromTool = false): void {
   el.card.classList.toggle('playing', playing);
   show(el.playIcon, !playing);
   show(el.pauseIcon, playing);
-  el.play.title = playing ? 'Pause' : 'Play';
+  setTitle(el.play, playing ? 'Pause' : 'Play');
   el.shuffle.classList.toggle('on', !!np.shuffle);
-  el.shuffle.title = np.shuffle ? 'Shuffle on' : 'Shuffle off';
+  setTitle(el.shuffle, np.shuffle ? 'Shuffle on' : 'Shuffle off');
   const rep = np.repeat ?? 'off';
   el.repeat.classList.toggle('on', rep !== 'off');
   show(el.rep1, rep === 'one');
-  el.repeat.title = rep === 'one' ? 'Repeating this song' : rep === 'all' ? 'Repeating all' : 'Repeat off';
+  setTitle(el.repeat, rep === 'one' ? 'Repeating this song' : rep === 'all' ? 'Repeating all' : 'Repeat off');
   el.like.classList.toggle('on', !!np.liked);
-  el.like.title = np.liked ? 'Liked' : 'Like';
+  setTitle(el.like, np.liked ? 'Liked' : 'Like');
   for (const b of [el.prev, el.play, el.next, el.shuffle, el.repeat, el.like]) b.disabled = false;
   show(el.lyricsBtn, !!np.lyricsAvailable);
   show(el.queueBtn, true);
   show(el.autoplayBtn, autoplayKnown);
   el.autoplayBtn.classList.toggle('on', autoplayOn);
-  el.autoplayBtn.title = autoplayOn ? 'Autoplay on — similar tracks continue after the queue' : 'Autoplay off — playback stops at the end of what you asked for';
+  setTitle(el.autoplayBtn, autoplayOn ? 'Autoplay on — similar tracks continue after the queue' : 'Autoplay off — playback stops at the end of what you asked for');
   if (!np.lyricsAvailable && lyricsOpen) setLyricsOpen(false);
   else if (lyricsOpen) renderLyrics(np);
-  if (typeof np.volume === 'number') setVolumeUi(np.volume);
+  setVolumeUi(typeof np.volume === 'number' ? np.volume : null);
 
   syncClock(np);
   setStatus('');
@@ -743,10 +775,10 @@ function render(state: UiState, fromTool = false): void {
 }
 
 function writeTrack(np: NowPlaying): void {
-  el.title.textContent = np.title;
-  el.title.title = np.title ?? '';
-  el.artist.textContent = np.artist ?? '';
-  el.album.textContent = np.album ? ` · ${np.album}` : '';
+  setText(el.title, np.title ?? '');
+  setTitle(el.title, np.title ?? '');
+  setText(el.artist, np.artist ?? '');
+  setText(el.album, np.album ? ` · ${np.album}` : '');
   renderTags(np);
   if (np.artwork) {
     if (el.art.src !== np.artwork) el.art.src = np.artwork;
@@ -765,11 +797,22 @@ function writeTrack(np: NowPlaying): void {
   }
 }
 
-function setVolumeUi(v: number): void {
+/**
+ * `null` means the server has not read the player's volume yet. Showing the slider's own
+ * default in that gap is how the card ended up claiming full volume next to a player at a
+ * quarter of it, so say nothing instead until a real number arrives.
+ */
+function setVolumeUi(v: number | null): void {
+  const known = typeof v === 'number';
+  el.vol.disabled = !known;
+  setText(el.volPct, known ? String(v) : '––');
+  if (!known) {
+    setTitle(el.vol, 'Volume');
+    return;
+  }
   if (document.activeElement !== el.vol) el.vol.value = String(v);
   el.vol.style.setProperty('--fill', `${v}%`);
-  el.vol.title = `Volume ${v}`;
-  el.volPct.textContent = String(v);
+  setTitle(el.vol, `Volume ${v}`);
   const muted = v === 0;
   show(el.volIcon, !muted);
   show(el.muteIcon, muted);
@@ -784,23 +827,47 @@ let clockDur = 0;
 let clockRunning = false;
 let lastShownSec = -1;
 
+/**
+ * The bar runs on a local clock and the server only reports whole seconds, so re-seeding it
+ * on every poll dragged the position backwards by up to a second, three times a minute.
+ * Only re-seed when the two have genuinely diverged: a seek, a new track, or a state change.
+ */
 function syncClock(np: NowPlaying): void {
-  clockPos = np.position ?? 0;
-  clockDur = np.duration ?? 0;
+  const pos = np.position ?? 0;
+  const dur = np.duration ?? 0;
+  const running = np.state === 'playing';
+  // Measured against where the local clock thinks it is, so this must run before the
+  // running flag is updated.
+  const reseed = dur !== clockDur || running !== clockRunning || Math.abs(pos - localPosition()) > 1.5;
+  clockRunning = running;
+  if (!reseed) return;
+  clockPos = pos;
+  clockDur = dur;
   clockAt = performance.now();
-  clockRunning = np.state === 'playing';
   lastShownSec = -1;
+  lastFill = -1;
   drawProgress();
 }
 
+function localPosition(): number {
+  return clockRunning ? clockPos + (performance.now() - clockAt) / 1000 : clockPos;
+}
+
+let lastFill = -1;
+
 function drawProgress(): void {
-  const pos = clockRunning ? Math.min(clockDur || Infinity, clockPos + (performance.now() - clockAt) / 1000) : clockPos;
-  el.barFill.style.transform = `scaleX(${clockDur > 0 ? Math.min(1, pos / clockDur) : 0})`;
+  const pos = Math.min(clockDur || Infinity, localPosition());
+  const fill = clockDur > 0 ? Math.min(1, pos / clockDur) : 0;
+  // Sub-pixel changes are not worth a style write on every frame.
+  if (Math.abs(fill - lastFill) > 0.0004) {
+    lastFill = fill;
+    el.barFill.style.transform = `scaleX(${fill})`;
+  }
   const sec = Math.floor(pos);
   if (sec !== lastShownSec) {
     lastShownSec = sec;
-    el.pos.textContent = fmt(pos);
-    el.dur.textContent = fmt(clockDur);
+    setText(el.pos, fmt(pos));
+    setText(el.dur, fmt(clockDur));
   }
 }
 
@@ -827,11 +894,22 @@ const LOADING_CALLS = new Set(['play_href', 'next', 'previous', 'play']);
  */
 let chain: Promise<unknown> = Promise.resolve();
 let inFlight = 0;
+/** In-flight calls the user started, which are the only ones allowed to dim the controls. */
+let busy = 0;
+
+/**
+ * Calls the card makes on its own schedule. These must leave no visible trace: the busy
+ * dimming used to be applied to every call including the three-second poll, which meant the
+ * controls faded and un-faded on a loop — the flicker.
+ */
+const SILENT_CALLS = new Set(['ui_state', 'lyrics', 'queue']);
 
 function call(name: string, args: Record<string, unknown> = {}): Promise<UiState & Record<string, unknown>> {
+  const silent = SILENT_CALLS.has(name);
   const run = async (): Promise<UiState & Record<string, unknown>> => {
     inFlight++;
-    el.card.classList.add('busy');
+    if (!silent) busy++;
+    if (busy > 0) el.card.classList.add('busy');
     if (LOADING_CALLS.has(name)) show(el.artSpin, true);
     try {
       const res = await app.callServerTool({ name, arguments: args });
@@ -863,10 +941,9 @@ function call(name: string, args: Record<string, unknown> = {}): Promise<UiState
       return { error: String(e) };
     } finally {
       inFlight--;
-      if (inFlight === 0) {
-        el.card.classList.remove('busy');
-        show(el.artSpin, false);
-      }
+      if (!silent) busy--;
+      if (busy === 0) el.card.classList.remove('busy');
+      if (inFlight === 0) show(el.artSpin, false);
     }
   };
   const next = chain.then(run, run);
@@ -1071,6 +1148,11 @@ const DEMO_LYRICS = [
       el.queueBtn.classList.add('on');
       el.queueHead.textContent = `Up next · ${rows.length} queued`;
       el.queueList.replaceChildren(...rows.map((r, i) => queueRow(r, i + 1)));
+    }
+    // ?demo&poll re-renders the same state on the poll interval, which is how the card
+    // behaves in a host. Anything that rebuilds or re-animates here is a flicker.
+    if (location.search.includes('poll')) {
+      setInterval(() => render({ browser: 'running', loggedIn: true, now_playing: { ...current! } }), POLL_MS);
     }
     if (location.search.includes('stale')) {
       el.card.classList.add('stale');

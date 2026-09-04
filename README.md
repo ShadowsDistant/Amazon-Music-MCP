@@ -219,7 +219,9 @@ node "$HOME/.amazon-music-mcp/build/scripts/call.mjs" play_by_query '{"query":"g
 `node scripts/serve-ui.mjs` serves the widget at `http://localhost:8765` with no MCP host
 behind it. `?demo` fills it with a sample track, `?demo&lyrics` and `?demo&queue` open the
 panels, `?skeleton` shows the loading state, and `?accent=r,g,b` checks the contrast
-correction against an awkward cover.
+correction against an awkward cover. `?demo&poll` re-renders the same state on the poll
+interval, the way a host drives it: anything that rebuilds or re-animates there is a
+flicker, so watch it with a MutationObserver rather than by eye.
 
 Every tool logs its duration to stderr. `play_by_query` breaks that down by phase, and the
 `waitForTrack` and `single-track` lines say what the player actually did. When playback

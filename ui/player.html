@@ -65,7 +65,10 @@
   /* Never hard-clip: if the host ever sizes the frame smaller than the card, the content
      has to stay reachable rather than silently vanish. The bottom padding is room for the
      card’s drop shadow, which is painted outside its border box and was being cut off. */
-  body { overflow-x: hidden; padding-bottom: 10px; }
+  body { overflow-x: hidden; padding-bottom: 10px; scrollbar-width: none; }
+  /* Reachable by wheel or keyboard if the host ever sizes the frame short, but never a
+     visible scrollbar: one appearing and disappearing reflows the card and reads as flicker. */
+  body::-webkit-scrollbar { width: 0; height: 0; }
 
   .card { position: relative; overflow: hidden; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
           padding: 10px 12px 9px; box-shadow: var(--shadow); max-width: 100%;
@@ -161,6 +164,9 @@
   /* Volume: a slim rail that fills in the cover colour, with a thumb that grows on hover. */
   .vol { display: flex; align-items: center; gap: 6px; color: var(--muted); width: 116px; flex: none; }
   .vol button { width: 24px; height: 24px; flex: none; }
+  /* Until the server has read the real volume there is nothing honest to show, so the
+     slider is inert rather than parked at a value nobody set. */
+  .vol input:disabled { opacity: .4; cursor: default; }
   .vol button svg { width: 14px; height: 14px; }
   .vol input { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 14px; margin: 0; background: transparent; cursor: pointer; }
   .vol input::-webkit-slider-runnable-track { height: 4px; border-radius: 3px;
