@@ -87,7 +87,7 @@ const el = {
   status: $('status'),
 };
 
-const app = new App({ name: 'amazon-music-player', version: '1.0.2' });
+const app = new App({ name: 'amazon-music-player', version: '1.1.0' });
 let current: NowPlaying | null = null;
 /**
  * The track this card is about. Once set it does not change on its own: a card in the

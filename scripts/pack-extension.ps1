@@ -45,6 +45,8 @@ try {
 } finally { Pop-Location }
 Copy-Item (Join-Path $Src 'assets\icon-256.png') (Join-Path $Stage 'icon.png')
 if (Test-Path (Join-Path $Src 'README.md')) { Copy-Item (Join-Path $Src 'README.md') $Stage }
+# The GPL requires the licence text to travel with the program.
+if (Test-Path (Join-Path $Src 'LICENSE'))   { Copy-Item (Join-Path $Src 'LICENSE') $Stage }
 
 # The server reads its own paths from config.ts, which defaults to %USERPROFILE%\.amazon-music-mcp,
 # so no env block is needed here — the existing Edge profile and sign-in carry over.
@@ -65,8 +67,8 @@ $manifest = [ordered]@{
       args    = @('${__dirname}/dist/index.js')
     }
   }
-  keywords         = @('music', 'amazon music', 'player', 'audio')
-  license          = 'MIT'
+  keywords         = @('music', 'amazon music', 'player', 'audio', 'lyrics', 'mcp', 'browser automation')
+  license          = 'GPL-3.0-or-later'
   compatibility    = [ordered]@{
     claude_desktop = '>=0.10.0'
     platforms      = @('win32')
